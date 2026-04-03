@@ -1,0 +1,100 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/radicand/forwardauth-rs
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    # traefik.ingress.kubernetes.io/router.priority: "99999"
+  hosts:
+    - host: auth.example.test
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Application configuration (mounted as /config/application.yaml)
+# This format is compatible with the original traefik-forward-auth0
+applicationYaml: {}
+  # domain: https://xxxxx.xx.auth0.com/
+  # token-endpoint: https://xxx.xx.auth0.com/oauth/token
+  # authorize-url: https://xxxx.xx.auth0.com/authorize
+  # userinfo-endpoint: https://xxxx.xx.auth0.com/userinfo
+  # logout-endpoint: https://xxxx.xx.auth0.com/v2/logout
+  # default:
+  #   name: www.example.test
+  #   client-id: <from auth0 application config>
+  #   client-secret: <from auth0 application config>
+  #   audience: <from auth0 api config>
+  #   scope: "profile openid email"
+  #   redirect-uri: https://www.example.test/oauth2/signin
+  #   token-cookie-domain: example.test
+  #   return-to: https://www.example.test
+  # apps:
+  #   - name: traefik.example.test
+  #     audience: <from auth0 api config>
+
+# Use an existing configmap instead of creating one
+existingConfigMap: ""
+
+resources:
+  limits:
+    memory: 64Mi
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 3
+  periodSeconds: 10
+
+env: []
+  # - name: RUST_LOG
+  #   value: "info,forwardauth_rs=debug"
+  # - name: PORT
+  #   value: "8080"

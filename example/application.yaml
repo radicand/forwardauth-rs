@@ -1,0 +1,68 @@
+# ForwardAuth-RS Example Configuration
+#
+# This file configures the forward authentication service.
+# Place it at /config/application.yaml or set CONFIG_FILE env var.
+#
+# This format is compatible with the original traefik-forward-auth0 project.
+
+# Auth0 domain and endpoints
+domain: https://YOUR_TENANT.auth0.com/
+token-endpoint: https://YOUR_TENANT.auth0.com/oauth/token
+authorize-url: https://YOUR_TENANT.auth0.com/authorize
+userinfo-endpoint: https://YOUR_TENANT.auth0.com/userinfo
+logout-endpoint: https://YOUR_TENANT.auth0.com/v2/logout
+
+# Max age for nonce cookie in seconds (CSRF protection)
+nonce-max-age: 60
+
+# Default application configuration
+# Used when no matching app is found in the apps list.
+default:
+  name: www.example.com
+  client-id: YOUR_AUTH0_CLIENT_ID
+  client-secret: YOUR_AUTH0_CLIENT_SECRET
+  audience: https://api.example.com
+  scope: "profile openid email"
+  redirect-uri: https://www.example.com/oauth2/signin
+  token-cookie-domain: example.com
+  return-to: https://www.example.com
+
+  # HTTP methods that require authentication.
+  # All listed methods require a valid token; unlisted methods pass through.
+  restricted-methods:
+    - DELETE
+    - GET
+    - HEAD
+    - OPTIONS
+    - PATCH
+    - POST
+    - PUT
+
+  # Auth0 API permissions required for access.
+  # Leave empty to skip permission checks.
+  required-permissions: []
+
+  # Claims from the ID token to forward as x-forwardauth-* headers.
+  claims:
+    - sub
+    - name
+    - email
+
+# Per-application overrides.
+# Matched against x-forwarded-host header. Inherits from default for any
+# missing fields.
+apps:
+  - name: admin.example.com
+    audience: https://api.admin.example.com
+    required-permissions:
+      - admin:access
+    restricted-methods:
+      - POST
+      - DELETE
+      - PUT
+      - PATCH
+
+  - name: api.example.com
+    # Inherits client-id, client-secret, scope etc from default.
+    # Only the audience is different.
+    audience: https://api.example.com

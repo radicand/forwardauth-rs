@@ -1,0 +1,57 @@
+[package]
+name = "forwardauth-rs"
+version = "2.0.0"
+edition = "2021"
+description = "A Rust-based forward authentication service for Traefik with Auth0/OIDC support"
+license = "GPL-3.0"
+repository = "https://github.com/radicand/forwardauth-rs"
+readme = "README.md"
+
+[dependencies]
+# Web framework
+axum = { version = "0.8", features = ["macros"] }
+axum-extra = { version = "0.10", features = ["cookie"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+tokio = { version = "1", features = ["full"] }
+hyper = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "cookies"] }
+
+# JWT / Auth
+jsonwebtoken = "9"
+base64 = "0.22"
+url = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Configuration
+config = { version = "0.14", features = ["yaml"] }
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Crypto
+uuid = { version = "1", features = ["v4"] }
+rand = "0.8"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+wiremock = "0.6"
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
