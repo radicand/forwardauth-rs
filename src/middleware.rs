@@ -106,9 +106,7 @@ pub async fn authenticate_middleware(
                     if let Token::Jwt(ref id_jwt) = id_token {
                         // Verify sub matches between access_token and id_token
                         // to prevent token substitution attacks (#124)
-                        if !id_jwt.claims.sub.is_empty()
-                            && id_jwt.claims.sub != sub
-                        {
+                        if !id_jwt.claims.sub.is_empty() && id_jwt.claims.sub != sub {
                             debug!(
                                 "Sub mismatch: access_token sub={} id_token sub={}, ignoring id_token",
                                 sub, id_jwt.claims.sub

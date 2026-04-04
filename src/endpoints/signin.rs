@@ -88,7 +88,10 @@ pub async fn signin(
             ))
         }
         SigninResult::NonceFailed { origin_url } => {
-            warn!("Nonce validation failed, redirecting user to {} to restart login", origin_url);
+            warn!(
+                "Nonce validation failed, redirecting user to {} to restart login",
+                origin_url
+            );
             // Redirect user back to their original URL so the /authorize
             // middleware can start a fresh login with a new nonce
             let response = axum::http::Response::builder()
