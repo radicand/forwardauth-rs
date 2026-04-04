@@ -77,6 +77,27 @@ pub async fn signin(
                 format!("{}: {}", reason, description),
             ))
         }
+        SigninResult::AuthError {
+            reason,
+            description,
+        } => {
+            error!("Auth0 authentication error: {} - {}", reason, description);
+            Err((
+                StatusCode::UNAUTHORIZED,
+                format!("{}: {}", reason, description),
+            ))
+        }
+        SigninResult::NonceFailed { origin_url } => {
+            warn!("Nonce validation failed, redirecting user to {} to restart login", origin_url);
+            // Redirect user back to their original URL so the /authorize
+            // middleware can start a fresh login with a new nonce
+            let response = axum::http::Response::builder()
+                .status(StatusCode::TEMPORARY_REDIRECT)
+                .header("Location", &origin_url)
+                .body(axum::body::Body::empty())
+                .unwrap();
+            Ok(response)
+        }
     }
 }
 
@@ -86,14 +107,14 @@ async fn handle_signin(
     nonce_cookie: &Option<String>,
     app: &crate::config::ApplicationConfig,
 ) -> SigninResult {
-    // Check for error from Auth0
+    // Check for error from Auth0 (#54)
     if let Some(ref error) = params.error {
         let description = params
             .error_description
             .as_deref()
             .unwrap_or("no error description");
         error!("Received error from Auth0 on sign in: {}", description);
-        return SigninResult::Error {
+        return SigninResult::AuthError {
             reason: error.clone(),
             description: description.to_string(),
         };
@@ -138,20 +159,18 @@ async fn handle_signin(
             debug!("Nonce validation successful");
         }
         Some(cookie_nonce) => {
-            error!(
-                "Nonce mismatch: received={} cookie={}",
+            warn!(
+                "Nonce mismatch: received={} cookie={}, redirecting to login (#142)",
                 received_nonce, cookie_nonce
             );
-            return SigninResult::Error {
-                reason: "Nonce mismatch".to_string(),
-                description: "AUTH_NONCE cookie didn't match the nonce in state".to_string(),
+            return SigninResult::NonceFailed {
+                origin_url: decoded_state.origin_url(),
             };
         }
         None => {
-            warn!("AUTH_NONCE cookie not found");
-            return SigninResult::Error {
-                reason: "Missing nonce".to_string(),
-                description: "AUTH_NONCE cookie not found".to_string(),
+            warn!("AUTH_NONCE cookie not found, redirecting to login (#142)");
+            return SigninResult::NonceFailed {
+                origin_url: decoded_state.origin_url(),
             };
         }
     }

@@ -279,6 +279,10 @@ pub enum SigninResult {
     },
     /// An error occurred during signin
     Error { reason: String, description: String },
+    /// An authentication error from Auth0 (returns 401)
+    AuthError { reason: String, description: String },
+    /// Nonce validation failed — redirect user to login to get a fresh nonce (#142)
+    NonceFailed { origin_url: String },
 }
 
 /// Result of signout

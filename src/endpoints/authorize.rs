@@ -146,8 +146,8 @@ fn perform_authorization(
         User::Anonymous => {
             // No valid token, need to redirect for auth
             if is_api {
-                return AuthorizeResult::AccessDenied {
-                    user: User::Anonymous,
+                // Return 401 for API requests (#128) instead of redirect
+                return AuthorizeResult::Error {
                     reason: "Authentication required".to_string(),
                 };
             }
