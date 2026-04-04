@@ -104,9 +104,18 @@ pub async fn authenticate_middleware(
                     userinfo.insert("sub".to_string(), sub.clone());
 
                     if let Token::Jwt(ref id_jwt) = id_token {
-                        for claim_name in &app.claims {
-                            if let Some(value) = id_jwt.get_claim(claim_name) {
-                                userinfo.insert(claim_name.clone(), value);
+                        // Verify sub matches between access_token and id_token
+                        // to prevent token substitution attacks (#124)
+                        if !id_jwt.claims.sub.is_empty() && id_jwt.claims.sub != sub {
+                            debug!(
+                                "Sub mismatch: access_token sub={} id_token sub={}, ignoring id_token",
+                                sub, id_jwt.claims.sub
+                            );
+                        } else {
+                            for claim_name in &app.claims {
+                                if let Some(value) = id_jwt.get_claim(claim_name) {
+                                    userinfo.insert(claim_name.clone(), value);
+                                }
                             }
                         }
                     }

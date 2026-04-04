@@ -294,7 +294,8 @@ async fn test_signin_with_auth0_error() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    // Auth0 auth errors should return 401 (#54)
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -338,7 +339,7 @@ async fn test_signin_missing_state_returns_error() {
 }
 
 #[tokio::test]
-async fn test_signin_nonce_mismatch_returns_error() {
+async fn test_signin_nonce_mismatch_redirects_to_origin() {
     let mock_server = MockServer::start().await;
     let config = test_config(&mock_server.uri());
     let app = build_test_app(config);
@@ -353,7 +354,7 @@ async fn test_signin_nonce_mismatch_returns_error() {
     };
     let encoded_state = state.encode();
 
-    // Send with wrong nonce cookie
+    // Send with wrong nonce cookie — should redirect to origin URL (#142)
     let response = app
         .oneshot(
             Request::builder()
@@ -366,7 +367,16 @@ async fn test_signin_nonce_mismatch_returns_error() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    // Nonce mismatch should redirect to origin so /authorize can start fresh login
+    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+    let location = response
+        .headers()
+        .get("location")
+        .unwrap()
+        .to_str()
+        .unwrap();
+    assert!(location.contains("www.example.test"));
+    assert!(location.contains("/protected"));
 }
 
 #[tokio::test]
