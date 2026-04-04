@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use url::Url;
 
 /// Top-level configuration matching the original application.yaml format.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -127,6 +128,36 @@ impl AppConfig {
         if self.default.name.is_empty() {
             anyhow::bail!("default.name is required");
         }
+
+        // Validate that all OIDC endpoints belong to the configured domain
+        // to prevent server-side request forgery via misconfiguration.
+        let domain_url =
+            Url::parse(&self.domain).map_err(|e| anyhow::anyhow!("invalid domain URL: {}", e))?;
+        let domain_host = domain_url
+            .host_str()
+            .ok_or_else(|| anyhow::anyhow!("domain URL must have a host"))?;
+
+        for (name, endpoint) in [
+            ("token-endpoint", &self.token_endpoint),
+            ("authorize-url", &self.authorize_url),
+            ("userinfo-endpoint", &self.userinfo_endpoint),
+            ("logout-endpoint", &self.logout_endpoint),
+        ] {
+            let ep_url = Url::parse(endpoint)
+                .map_err(|e| anyhow::anyhow!("{} is not a valid URL: {}", name, e))?;
+            let ep_host = ep_url
+                .host_str()
+                .ok_or_else(|| anyhow::anyhow!("{} must have a host", name))?;
+            if ep_host != domain_host {
+                anyhow::bail!(
+                    "{} host '{}' does not match domain host '{}'",
+                    name,
+                    ep_host,
+                    domain_host
+                );
+            }
+        }
+
         Ok(())
     }
 
