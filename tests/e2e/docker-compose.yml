@@ -1,0 +1,97 @@
+# E2E test stack for forwardauth-rs.
+#
+# Service graph:
+#   [Playwright browser on CI runner]
+#       │
+#       │ http://localhost:80  (Traefik port 80)
+#       ▼
+#   [traefik:80]  ──forwardAuth middleware──►  [forwardauth:8080 /authorize]
+#       │                                              │
+#       │ (if 307)                                     │ (JWKS/token calls)
+#       ▼                                              ▼
+#   browser follows redirect            [mock-oidc:4444]
+#       │                                              │
+#       │ http://mock-oidc:4444/authorize              │ (auto-approve)
+#       │      ← redirect to http://localhost/oauth2/signin
+#       ▼
+#   [traefik:80 /oauth2/signin]  ──route──►  [forwardauth:8080 /signin]
+#       │  (no auth middleware on this path)           │
+#                                                       │ sets cookies Domain=localhost
+#                                                       │ redirects to http://localhost/
+#       ◄─────────────────────────────────────────────
+#   browser at http://localhost/ with cookies → 204 → [nginx:80]
+#
+# IMPORTANT: mock-oidc must resolve to 127.0.0.1 on the host running Playwright
+# so the browser can reach the mock OIDC provider during the redirect chain.
+# On CI, add "127.0.0.1 mock-oidc" to /etc/hosts.
+
+services:
+
+  # ── Tiny OIDC provider ────────────────────────────────────────────────────
+  mock-oidc:
+    build:
+      context: mock-oidc
+    environment:
+      ISSUER:     "http://mock-oidc:4444/"
+      CLIENT_ID:  "e2e-client"
+      AUDIENCE:   "http://mock-oidc:4444/api"
+      PORT:       "4444"
+    ports:
+      - "4444:4444"   # exposed so Playwright on the host can follow OIDC redirects
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null",
+             "http://127.0.0.1:4444/.well-known/openid-configuration"]
+      interval: 2s
+      timeout: 5s
+      start_period: 10s
+      retries: 30
+
+  # ── ForwardAuth-RS ────────────────────────────────────────────────────────
+  forwardauth:
+    build:
+      context: ../..
+      dockerfile: tests/e2e/Dockerfile.forwardauth
+    volumes:
+      - ./config/application.yaml:/config/application.yaml:ro
+    environment:
+      CONFIG_FILE: /config/application.yaml
+      RUST_LOG: "info,forwardauth_rs=debug"
+    ports:
+      - "8080:8080"   # exposed for health-check polling from the CI runner
+    depends_on:
+      mock-oidc:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 2s
+      timeout: 5s
+      start_period: 15s
+      retries: 30
+
+  # ── Protected application (nginx) ─────────────────────────────────────────
+  nginx:
+    image: nginx:1-alpine
+    volumes:
+      - ./nginx/html:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/"]
+      interval: 2s
+      timeout: 5s
+      start_period: 5s
+      retries: 15
+
+  # ── Traefik reverse proxy ─────────────────────────────────────────────────
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+    ports:
+      - "80:80"
+    depends_on:
+      forwardauth:
+        condition: service_healthy
+      nginx:
+        condition: service_healthy

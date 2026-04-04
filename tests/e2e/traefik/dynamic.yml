@@ -1,0 +1,72 @@
+## Traefik dynamic configuration for the e2e test stack.
+##
+## Routing strategy:
+##
+##  Host(protected) + PathPrefix(/oauth2/signin)
+##      → forwardauth service (NO auth middleware)
+##      Handles the OIDC callback; AUTH_NONCE cookie is sent because the browser
+##      is on the `protected` domain (same as where Traefik set the cookie).
+##
+##  Host(protected)  [everything else]
+##      → nginx protected-app  (WITH forwardauth middleware)
+##      Traefik calls forwardauth /authorize before every request; non-2xx
+##      responses (including the 307 OIDC redirect + Set-Cookie) are forwarded
+##      verbatim to the browser.
+
+http:
+
+  middlewares:
+    forwardauth:
+      forwardAuth:
+        address: "http://forwardauth:8080/authorize"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "Authorization"
+          - "X-Forwardauth-Sub"
+          - "X-Forwardauth-Email"
+          - "X-Forwardauth-Name"
+
+    strip-oauth2:
+      stripPrefix:
+        prefixes:
+          - "/oauth2"
+
+  routers:
+    # OIDC callback — routed directly to forwardauth, no auth middleware.
+    # More specific rule wins (PathPrefix narrows Host match).
+    signin-callback:
+      rule: "Host(`localhost`) && PathPrefix(`/oauth2/signin`)"
+      service: forwardauth-svc
+      middlewares:
+        - strip-oauth2
+      entryPoints:
+        - web
+
+    # Signout route — also pass through to forwardauth directly.
+    signout:
+      rule: "Host(`localhost`) && PathPrefix(`/oauth2/signout`)"
+      service: forwardauth-svc
+      middlewares:
+        - strip-oauth2
+      entryPoints:
+        - web
+
+    # All other requests on the `localhost` host go through the auth middleware.
+    protected-app:
+      rule: "Host(`localhost`)"
+      service: nginx-svc
+      middlewares:
+        - forwardauth
+      entryPoints:
+        - web
+
+  services:
+    forwardauth-svc:
+      loadBalancer:
+        servers:
+          - url: "http://forwardauth:8080"
+
+    nginx-svc:
+      loadBalancer:
+        servers:
+          - url: "http://nginx:80"

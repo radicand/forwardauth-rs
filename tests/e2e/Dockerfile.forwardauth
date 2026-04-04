@@ -1,0 +1,41 @@
+# E2E test image for forwardauth-rs.
+#
+# Full multi-stage build — works on any platform (CI or local Mac ARM).
+# Build context must be the repository root:
+#   docker build -f tests/e2e/Dockerfile.forwardauth -t forwardauth-rs:e2e .
+
+# ── Builder stage ──────────────────────────────────────────────────────────
+FROM rust:1-slim AS builder
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Cache dependency builds
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && echo "" > src/lib.rs \
+ && cargo build --release 2>/dev/null || true \
+ && rm -rf src
+
+# Build the real binary
+COPY src/ src/
+RUN touch src/main.rs src/lib.rs && cargo build --release
+
+# ── Runtime stage ──────────────────────────────────────────────────────────
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/target/release/forwardauth-rs /usr/local/bin/forwardauth-rs
+RUN chmod +x /usr/local/bin/forwardauth-rs
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=2s --timeout=5s --start-period=15s --retries=30 \
+  CMD curl -f http://127.0.0.1:8080/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/forwardauth-rs"]

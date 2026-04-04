@@ -1,0 +1,13 @@
+{
+  "name": "mock-oidc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal OIDC provider for forwardauth-rs e2e testing",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

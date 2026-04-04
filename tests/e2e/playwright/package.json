@@ -1,0 +1,15 @@
+{
+  "name": "forwardauth-rs-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "E2E tests for forwardauth-rs OIDC middleware",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "@types/node": "^25.0.0"
+  }
+}
