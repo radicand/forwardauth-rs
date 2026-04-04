@@ -57,11 +57,17 @@ jobs:
         run: |
           # localhost returns 307 (to OIDC) when unauthenticated — that means
           # Traefik, forwardauth, and the protected app are all running.
-          timeout 60 bash -c \
-            'until curl -sf -o /dev/null -w \"%{http_code}\" http://localhost/ | grep -qE \"307|302|200\"; do
-               echo "Waiting for Traefik..."; sleep 2
-             done'
-          echo "Traefik is ready"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ 2>/dev/null || true)
+            echo "Attempt $i: HTTP $code"
+            if echo "$code" | grep -qE '^(307|302|200)$'; then
+              echo "Traefik is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Traefik did not become ready in time"
+          exit 1
 
       # ── Install Playwright ───────────────────────────────────────────────────
       - uses: actions/setup-node@v4
