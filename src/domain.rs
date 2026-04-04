@@ -359,13 +359,14 @@ mod tests {
             uri: "/protected/page".to_string(),
             method: "GET".to_string(),
         };
-        let state = AuthorizeState::new(&url, "test-nonce-123");
+        let nonce = uuid::Uuid::new_v4().to_string();
+        let state = AuthorizeState::new(&url, &nonce);
         let encoded = state.encode();
         let decoded = AuthorizeState::decode(&encoded).unwrap();
         assert_eq!(decoded.protocol, "https");
         assert_eq!(decoded.host, "www.example.com");
         assert_eq!(decoded.uri, "/protected/page");
-        assert_eq!(decoded.nonce, "test-nonce-123");
+        assert_eq!(decoded.nonce, nonce);
     }
 
     #[test]

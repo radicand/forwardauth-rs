@@ -170,6 +170,18 @@ app.get('/userinfo', (_req, res) => {
 // Logout endpoint
 app.get('/logout', (req, res) => {
   const returnTo = req.query.returnTo || req.query.return_to || '/';
+  // Validate redirect target to prevent open redirect (CWE-601).
+  // In this test mock, only allow relative paths or known test hosts.
+  try {
+    const parsed = new URL(returnTo, `http://${req.headers.host}`);
+    const allowedHosts = [req.headers.host, 'localhost', 'forwardauth', 'nginx', 'traefik'];
+    if (!allowedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`))) {
+      console.warn(`Blocked redirect to disallowed host: ${parsed.hostname}`);
+      return res.redirect(302, '/');
+    }
+  } catch {
+    return res.redirect(302, '/');
+  }
   res.redirect(302, returnTo);
 });
 

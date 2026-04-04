@@ -597,6 +597,30 @@ default:
     assert!(result.is_err());
 }
 
+#[test]
+fn test_config_validation_endpoint_host_mismatch() {
+    let yaml = r#"
+domain: https://test.auth0.com/
+token-endpoint: https://evil.example.com/oauth/token
+authorize-url: https://test.auth0.com/authorize
+userinfo-endpoint: https://test.auth0.com/userinfo
+logout-endpoint: https://test.auth0.com/v2/logout
+default:
+  name: test
+  client-id: test-id
+  client-secret: test-secret
+  audience: https://api.test
+  redirect-uri: https://www.example.com/oauth2/signin
+  return-to: https://www.example.com/
+"#;
+    let result = AppConfig::from_yaml(yaml);
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("does not match domain host"));
+}
+
 // ==================== Domain types tests ====================
 
 #[test]
@@ -607,15 +631,15 @@ fn test_authorize_state_roundtrip() {
         uri: "/path/to/resource?query=1&foo=bar".to_string(),
         method: "POST".to_string(),
     };
-    let nonce = "randomnonce123";
-    let state = forwardauth_rs::domain::AuthorizeState::new(&url, nonce);
+    let nonce = uuid::Uuid::new_v4().to_string();
+    let state = forwardauth_rs::domain::AuthorizeState::new(&url, &nonce);
     let encoded = state.encode();
     let decoded = forwardauth_rs::domain::AuthorizeState::decode(&encoded).unwrap();
     assert_eq!(decoded.protocol, "https");
     assert_eq!(decoded.host, "test.example.com");
     assert_eq!(decoded.uri, "/path/to/resource?query=1&foo=bar");
     assert_eq!(decoded.method, "POST");
-    assert_eq!(decoded.nonce, "randomnonce123");
+    assert_eq!(decoded.nonce, nonce);
 }
 
 #[test]
