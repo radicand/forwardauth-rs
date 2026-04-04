@@ -1,0 +1,42 @@
+# forwardauth-rs configuration for the e2e test stack.
+#
+# All URLs use Docker-internal service hostnames. The /etc/hosts entry on the
+# CI runner maps these same hostnames to 127.0.0.1 so the browser can follow
+# redirect chains that contain Docker-internal URLs.
+#
+# Key design choices:
+#   - domain / issuer: http://mock-oidc:4444/  (trailing slash required)
+#   - redirect-uri: http://protected/oauth2/signin  (through Traefik so the
+#       AUTH_NONCE cookie — set for Domain=protected — is included in the request)
+#   - token-cookie-domain: protected  (single-label hostname; cookies stay on
+#       the `protected` origin and are forwarded by Traefik on every request)
+
+domain: "http://mock-oidc:4444/"
+token-endpoint: "http://mock-oidc:4444/oauth/token"
+authorize-url: "http://mock-oidc:4444/authorize"
+userinfo-endpoint: "http://mock-oidc:4444/userinfo"
+logout-endpoint: "http://mock-oidc:4444/logout"
+nonce-max-age: 300
+
+default:
+  name: "protected"
+  client-id: "e2e-client"
+  client-secret: "e2e-secret"
+  audience: "http://mock-oidc:4444/api"
+  scope: "profile openid email"
+  redirect-uri: "http://protected/oauth2/signin"
+  token-cookie-domain: "protected"
+  return-to: "http://protected"
+  claims:
+    - sub
+    - email
+    - name
+  restricted-methods:
+    - DELETE
+    - GET
+    - HEAD
+    - OPTIONS
+    - PATCH
+    - POST
+    - PUT
+  required-permissions: []

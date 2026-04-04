@@ -1,0 +1,119 @@
+name: E2E Tests
+
+# Only runs on pull requests targeting main. Proves the OIDC middleware works end-to-end
+# against a real OIDC provider simulation with a full browser-driven auth flow.
+# Restricted to amd64 (ubuntu-latest is always x86_64 on GitHub-hosted runners).
+on:
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  e2e:
+    name: End-to-End OIDC Flow
+    runs-on: ubuntu-latest
+    # Explicitly skip if somehow running on a non-x64 runner (e.g., self-hosted ARM).
+    if: runner.arch == 'X64'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Build the forwardauth-rs binary ──────────────────────────────────────
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release
+
+      # ── Register test hostnames on the runner ────────────────────────────────
+      # All Docker service hostnames must resolve to 127.0.0.1 so Playwright
+      # (running on the host) can follow redirects that use Docker-internal names.
+      - name: Configure /etc/hosts
+        run: |
+          echo "127.0.0.1 protected mock-oidc" | sudo tee -a /etc/hosts
+          cat /etc/hosts | tail -5
+
+      # ── Build the e2e Docker images and start the stack ──────────────────────
+      - name: Build forwardauth e2e image
+        run: |
+          docker build \
+            -f tests/e2e/Dockerfile.forwardauth \
+            -t forwardauth-rs:e2e \
+            .
+
+      - name: Start E2E stack
+        run: |
+          docker compose -f tests/e2e/docker-compose.yml up -d
+          docker compose -f tests/e2e/docker-compose.yml ps
+
+      # ── Wait for all services to be ready ────────────────────────────────────
+      - name: Wait for mock-oidc
+        run: |
+          timeout 60 bash -c \
+            'until curl -sf http://mock-oidc:4444/.well-known/openid-configuration; do
+               echo "Waiting for mock-oidc..."; sleep 2
+             done'
+          echo "mock-oidc is ready"
+
+      - name: Wait for forwardauth
+        run: |
+          timeout 60 bash -c \
+            'until curl -sf http://localhost:8080/health; do
+               echo "Waiting for forwardauth..."; sleep 2
+             done'
+          echo "forwardauth is ready"
+
+      - name: Wait for Traefik + protected app
+        run: |
+          # Protected returns 307 (to OIDC) when unauthenticated — that means
+          # Traefik, forwardauth, and the protected app are all running.
+          timeout 60 bash -c \
+            'until curl -sf -o /dev/null -w "%{http_code}" http://protected/ | grep -qE "307|302|200"; do
+               echo "Waiting for Traefik..."; sleep 2
+             done'
+          echo "Traefik is ready"
+
+      # ── Install Playwright ───────────────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: tests/e2e/playwright/package-lock.json
+
+      - name: Install Playwright dependencies
+        working-directory: tests/e2e/playwright
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      # ── Run the tests ────────────────────────────────────────────────────────
+      - name: Run E2E tests
+        working-directory: tests/e2e/playwright
+        run: npx playwright test --reporter=list
+
+      # ── Artifacts and cleanup ────────────────────────────────────────────────
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright/playwright-report/
+          retention-days: 7
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: |
+          echo "=== forwardauth ==="
+          docker compose -f tests/e2e/docker-compose.yml logs forwardauth
+          echo "=== mock-oidc ==="
+          docker compose -f tests/e2e/docker-compose.yml logs mock-oidc
+          echo "=== traefik ==="
+          docker compose -f tests/e2e/docker-compose.yml logs traefik
+          echo "=== nginx ==="
+          docker compose -f tests/e2e/docker-compose.yml logs nginx
+
+      - name: Stop E2E stack
+        if: always()
+        run: docker compose -f tests/e2e/docker-compose.yml down -v

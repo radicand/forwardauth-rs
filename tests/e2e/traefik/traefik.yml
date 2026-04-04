@@ -1,0 +1,19 @@
+## Traefik static configuration for the e2e test stack.
+##
+## File provider points to dynamic.yml for route and middleware definitions.
+## No TLS — everything runs over plain HTTP in the test environment.
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: false
+
+api:
+  insecure: true   # Traefik dashboard on port 8080 inside the container (not exposed)
+
+log:
+  level: INFO

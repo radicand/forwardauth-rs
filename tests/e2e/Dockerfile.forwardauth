@@ -1,0 +1,19 @@
+# Minimal runtime image for the e2e test stack.
+# Expects the pre-built binary at ./target/release/forwardauth-rs (built by CI
+# with `cargo build --release` before this Dockerfile is processed).
+
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY target/release/forwardauth-rs /usr/local/bin/forwardauth-rs
+RUN chmod +x /usr/local/bin/forwardauth-rs
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=2s --timeout=5s --start-period=15s --retries=30 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/forwardauth-rs"]

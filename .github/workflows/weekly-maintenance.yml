@@ -1,0 +1,89 @@
+name: Weekly Repository Maintenance
+
+# Runs every Friday at 5PM US Pacific time.
+#   PDT (UTC-7): Friday 17:00 = Saturday 00:00 UTC  → cron day 6 hour 0
+#   PST (UTC-8): Friday 17:00 = Saturday 01:00 UTC  → cron day 6 hour 1
+# We schedule at 00:00 UTC Saturday (≈ Friday 5PM PDT) and accept ±1 hour seasonal drift.
+on:
+  schedule:
+    - cron: "0 0 * * 6"
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-maintenance-issue:
+    name: Create weekly maintenance issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create maintenance issue and assign to Copilot
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const now = new Date();
+            const date = now.toISOString().split('T')[0];
+
+            // Avoid duplicates: check if a maintenance issue already exists for today
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'maintenance',
+              per_page: 10,
+            });
+
+            if (existing.some(i => i.title.includes(date))) {
+              console.log('Maintenance issue already exists for today, skipping.');
+              return;
+            }
+
+            const body = [
+              `## Weekly Repository Maintenance — ${date}`,
+              '',
+              'This is an automated maintenance task. Please read and follow the workflow',
+              'defined in **`.agents/skills/repo-maintainer/SKILL.md`** in this repository.',
+              '',
+              '### Checklist',
+              '',
+              '- [ ] Triage all open issues (bug, question, stale, security, duplicate, invalid)',
+              '- [ ] Review all open pull requests',
+              '- [ ] Check Dependabot security alerts',
+              '- [ ] Verify repository health (CI green, Helm chart current, README accurate)',
+              '- [ ] Post a summary comment and close this issue when done',
+              '',
+              '### Context',
+              '',
+              'Key files to reference:',
+              '- `.agents/skills/forwardauth-rs/SKILL.md` — codebase architecture & conventions',
+              '- `tests/integration_tests.rs` — test patterns',
+              '- `.github/workflows/ci.yml` — CI configuration',
+              '',
+              '> Voice: be firm but kind. Every reply should help build a welcoming community.',
+            ].join('\n');
+
+            const { data: issue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🛠️ Weekly Maintenance Run — ${date}`,
+              body,
+              labels: ['maintenance'],
+            });
+
+            console.log(`Created issue #${issue.number}: ${issue.html_url}`);
+
+            // Assign to the GitHub Copilot Coding Agent.
+            // This requires Copilot Coding Agent to be enabled for the repository.
+            try {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                assignees: ['copilot'],
+              });
+              console.log(`Assigned issue #${issue.number} to copilot`);
+            } catch (err) {
+              console.log(`Could not assign to copilot (agent may not be enabled): ${err.message}`);
+              console.log('Issue created — assign manually or enable Copilot Coding Agent.');
+            }
