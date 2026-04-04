@@ -15,7 +15,6 @@ jobs:
     name: End-to-End OIDC Flow
     runs-on: ubuntu-latest
     # Explicitly skip if somehow running on a non-x64 runner (e.g., self-hosted ARM).
-    if: runner.arch == 'X64'
 
     steps:
       - uses: actions/checkout@v4

@@ -16,7 +16,7 @@
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 // ISSUER must match the `domain` field in forwardauth-rs application.yaml
