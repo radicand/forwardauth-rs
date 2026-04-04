@@ -2,7 +2,7 @@ name: Dependabot Auto-Merge
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, closed]
   check_run:
     types: [completed]
   workflow_run:
@@ -98,30 +98,48 @@ jobs:
               console.log('Auto-merge status:', error.message);
             }
 
-      - name: Merge PR (fallback)
-        if: steps.check-status.outputs.all-passed == 'true'
-        uses: actions/github-script@v7
-        continue-on-error: true
+  create-patch-release:
+    name: Create Patch Release
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.merged == true
+    steps:
+      - uses: actions/checkout@v4
         with:
-          script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-            });
+          fetch-depth: 0
 
-            if (!pr.draft && pr.mergeable && pr.mergeable_state === 'clean') {
-              try {
-                await github.rest.pulls.merge({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: context.issue.number,
-                  merge_method: 'squash',
-                });
-                console.log('✅ PR merged successfully');
-              } catch (error) {
-                console.log('Could not merge:', error.message);
-              }
-            } else {
-              console.log('PR not ready for merge - Draft:', pr.draft, 'Mergeable:', pr.mergeable, 'State:', pr.mergeable_state);
-            }
+      - name: Extract version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "//' | sed 's/".*//')
+          echo "current=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Bump patch version
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update Cargo.toml with new version
+        run: |
+          sed -i 's/^version = ".*/version = "${{ steps.version.outputs.new }}"/' Cargo.toml
+
+      - name: Configure git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Commit version bump
+        run: |
+          git add Cargo.toml
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new }}"
+
+      - name: Push commit
+        run: git push
+
+      - name: Create and push tag
+        run: |
+          git tag -a v${{ steps.version.outputs.new }} -m "Release v${{ steps.version.outputs.new }}"
+          git push origin v${{ steps.version.outputs.new }}
+
