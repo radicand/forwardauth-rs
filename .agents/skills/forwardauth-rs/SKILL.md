@@ -218,6 +218,8 @@ cargo test                    # run all tests
 - `docker.yml` — builds and pushes multi-arch Docker image (`linux/amd64`, `linux/arm64`) to GHCR
 - `release.yml` — triggered by version tags; creates GitHub Release
 
+> **IMPORTANT — Protected Branch Policy:** `main` is a protected branch. All agent-driven changes MUST be committed to a new branch and submitted as a pull request. Direct pushes to `main` are not permitted. This applies to every agent task without exception — opening a PR is mandatory.
+
 **Docker image:** requires Rust ≥ 1.88 (time crate constraint). Base image: `rust:1-slim` for build, `debian:bookworm-slim` for runtime.
 
 ---
