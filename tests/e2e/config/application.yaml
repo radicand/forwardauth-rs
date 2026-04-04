@@ -19,14 +19,14 @@ logout-endpoint: "http://mock-oidc:4444/logout"
 nonce-max-age: 300
 
 default:
-  name: "protected"
+  name: "localhost"
   client-id: "e2e-client"
   client-secret: "e2e-secret"
   audience: "http://mock-oidc:4444/api"
   scope: "profile openid email"
-  redirect-uri: "http://protected/oauth2/signin"
-  token-cookie-domain: "protected"
-  return-to: "http://protected"
+  redirect-uri: "http://localhost/oauth2/signin"
+  token-cookie-domain: "localhost"
+  return-to: "http://localhost"
   claims:
     - sub
     - email

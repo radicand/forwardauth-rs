@@ -17,8 +17,9 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
 
   use: {
-    // The "protected" host is the Traefik entry point.
-    baseURL: 'http://protected',
+    // Traefik entry point. Uses localhost so cookies avoid the Secure flag
+    // (forwardauth skips Secure for localhost, and we run over plain HTTP).
+    baseURL: 'http://localhost',
 
     // Follow redirects — the full OIDC flow is a redirect chain.
     // Playwright's page.goto() follows all HTTP redirects automatically.

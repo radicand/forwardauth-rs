@@ -62,8 +62,6 @@ setInterval(() => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function issueTokens() {
-  const now = Math.floor(Date.now() / 1000);
-
   const accessToken = jwt.sign(
     { email: TEST_USER.email, name: TEST_USER.name, permissions: [] },
     PRIVATE_KEY_PEM,
@@ -74,7 +72,6 @@ function issueTokens() {
       subject:   TEST_USER.sub,
       audience:  AUDIENCE,
       expiresIn: 3600,
-      issuedAt:  now,
     },
   );
 
@@ -88,7 +85,6 @@ function issueTokens() {
       subject:   TEST_USER.sub,
       audience:  CLIENT_ID,
       expiresIn: 3600,
-      issuedAt:  now,
     },
   );
 

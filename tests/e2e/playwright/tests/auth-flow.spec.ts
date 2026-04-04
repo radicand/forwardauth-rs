@@ -17,8 +17,9 @@
  *
  *   4. /signout clears session cookies and redirects away from the app.
  *
- * Network topology (all hostnames resolve to 127.0.0.1 via /etc/hosts):
- *   Playwright → http://protected/ → Traefik → forwardauth /authorize
+ * Network topology:
+ *   mock-oidc:4444 must resolve to 127.0.0.1 via /etc/hosts.
+ *   Playwright → http://localhost/ → Traefik → forwardauth /authorize
  *                                             ↘ 307 → http://mock-oidc:4444/authorize
  *   Playwright follows redirect chain automatically via page.goto()
  */
@@ -42,14 +43,14 @@ async function hasSessionCookies(context: BrowserContext): Promise<boolean> {
  */
 async function loginViaOIDC(page: Page): Promise<void> {
   // Navigate to the protected root. Playwright follows:
-  //   http://protected/
+  //   http://localhost/
   //     → (Traefik forwardAuth 307) http://mock-oidc:4444/authorize?...
-  //     → (mock-oidc auto-approve) http://protected/oauth2/signin?code=...&state=...
-  //     → (forwardauth /signin 307) http://protected/
+  //     → (mock-oidc auto-approve) http://localhost/oauth2/signin?code=...&state=...
+  //     → (forwardauth /signin 307) http://localhost/
   await page.goto('/');
 
   // After the full chain the browser lands on the protected app.
-  await expect(page).toHaveURL(/^http:\/\/protected\/?$/);
+  await expect(page).toHaveURL(/^http:\/\/localhost\/?$/);
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -78,7 +79,7 @@ test.describe('OIDC authorization-code flow', () => {
     await page.goto('/');
 
     // Should land directly on the protected app (URL does NOT go through mock-oidc).
-    await expect(page).toHaveURL(/^http:\/\/protected\/?$/);
+    await expect(page).toHaveURL(/^http:\/\/localhost\/?$/);
     await expect(page.locator('h1')).toHaveText('Protected App');
   });
 
@@ -89,7 +90,7 @@ test.describe('OIDC authorization-code flow', () => {
     // We use the page's cookie context so the ACCESS_TOKEN cookie is included.
     const response = await page.request.get('http://localhost:8080/userinfo', {
       headers: {
-        'x-forwarded-host':   'protected',
+        'x-forwarded-host':   'localhost',
         'x-forwarded-proto':  'http',
         'x-forwarded-uri':    '/',
         'x-forwarded-method': 'GET',
@@ -98,24 +99,19 @@ test.describe('OIDC authorization-code flow', () => {
 
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body).toHaveProperty('sub', 'test-user-123');
-    expect(body).toHaveProperty('email', 'test@example.com');
+    // forwardauth returns Siren-style JSON with claims nested in `properties`.
+    const claims = body.properties ?? body;
+    expect(claims).toHaveProperty('sub', 'test-user-123');
+    expect(claims).toHaveProperty('email', 'test@example.com');
   });
 
   test('/signout clears session and redirects', async ({ page, context }) => {
     await loginViaOIDC(page);
     expect(await hasSessionCookies(context)).toBe(true);
 
-    // Hit the signout endpoint via the forwardauth service directly.
-    // (In production this URL would go through Traefik too.)
-    await page.goto('http://localhost:8080/signout', {
-      headers: {
-        'x-forwarded-host':   'protected',
-        'x-forwarded-proto':  'http',
-        'x-forwarded-uri':    '/signout',
-        'x-forwarded-method': 'GET',
-      },
-    });
+    // Hit the signout endpoint through Traefik (so x-forwarded-* headers and
+    // cookie domain handling work correctly).
+    await page.goto('http://localhost/oauth2/signout');
 
     // After signout, session cookies should be cleared (Max-Age=0).
     const cookies = await context.cookies();
@@ -132,7 +128,7 @@ test.describe('Authorization enforcement', () => {
     // same way, but we can ask forwardauth directly with Accept: application/json.
     const response = await page.request.get('http://localhost:8080/authorize', {
       headers: {
-        'x-forwarded-host':   'protected',
+        'x-forwarded-host':   'localhost',
         'x-forwarded-proto':  'http',
         'x-forwarded-uri':    '/api/data',
         'x-forwarded-method': 'GET',
@@ -151,7 +147,7 @@ test.describe('Authorization enforcement', () => {
     // Now call /authorize directly (simulating what Traefik does on each request).
     const response = await page.request.get('http://localhost:8080/authorize', {
       headers: {
-        'x-forwarded-host':   'protected',
+        'x-forwarded-host':   'localhost',
         'x-forwarded-proto':  'http',
         'x-forwarded-uri':    '/dashboard',
         'x-forwarded-method': 'GET',

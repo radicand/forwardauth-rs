@@ -3,7 +3,7 @@
 # Service graph:
 #   [Playwright browser on CI runner]
 #       │
-#       │ http://protected:80  (via /etc/hosts → 127.0.0.1 → Traefik port 80)
+#       │ http://localhost:80  (Traefik port 80)
 #       ▼
 #   [traefik:80]  ──forwardAuth middleware──►  [forwardauth:8080 /authorize]
 #       │                                              │
@@ -12,14 +12,18 @@
 #   browser follows redirect            [mock-oidc:4444]
 #       │                                              │
 #       │ http://mock-oidc:4444/authorize              │ (auto-approve)
-#       │      ← redirect to http://protected/oauth2/signin
+#       │      ← redirect to http://localhost/oauth2/signin
 #       ▼
 #   [traefik:80 /oauth2/signin]  ──route──►  [forwardauth:8080 /signin]
 #       │  (no auth middleware on this path)           │
-#                                                       │ sets cookies Domain=protected
-#                                                       │ redirects to http://protected/
+#                                                       │ sets cookies Domain=localhost
+#                                                       │ redirects to http://localhost/
 #       ◄─────────────────────────────────────────────
-#   browser at http://protected/ with cookies → 204 → [nginx:80]
+#   browser at http://localhost/ with cookies → 204 → [nginx:80]
+#
+# IMPORTANT: mock-oidc must resolve to 127.0.0.1 on the host running Playwright
+# so the browser can reach the mock OIDC provider during the redirect chain.
+# On CI, add "127.0.0.1 mock-oidc" to /etc/hosts.
 
 services:
 
@@ -36,7 +40,7 @@ services:
       - "4444:4444"   # exposed so Playwright on the host can follow OIDC redirects
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null",
-             "http://localhost:4444/.well-known/openid-configuration"]
+             "http://127.0.0.1:4444/.well-known/openid-configuration"]
       interval: 2s
       timeout: 5s
       start_period: 10s
@@ -44,7 +48,9 @@ services:
 
   # ── ForwardAuth-RS ────────────────────────────────────────────────────────
   forwardauth:
-    image: forwardauth-rs:e2e   # pre-built by the CI workflow before compose up
+    build:
+      context: ../..
+      dockerfile: tests/e2e/Dockerfile.forwardauth
     volumes:
       - ./config/application.yaml:/config/application.yaml:ro
     environment:

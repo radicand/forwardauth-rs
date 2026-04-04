@@ -25,7 +25,7 @@ serde_yaml = "0.9"
 reqwest = { version = "0.12", features = ["json", "cookies"] }
 
 # JWT / Auth
-jsonwebtoken = "10"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 base64 = "0.22"
 url = "2"
 
