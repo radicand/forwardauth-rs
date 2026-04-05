@@ -8,15 +8,26 @@ use axum::http::{Request, StatusCode};
 use axum::middleware as axum_middleware;
 use axum::routing::get;
 use axum::Router;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::Engine;
 use forwardauth_rs::config::AppConfig;
+use forwardauth_rs::domain::{Audience, JwtClaims, Token};
 use forwardauth_rs::endpoints;
 use forwardauth_rs::middleware::authenticate_middleware;
 use forwardauth_rs::state::AppState;
 use http_body_util::BodyExt;
+use jsonwebtoken::{Algorithm, EncodingKey, Header};
+use rsa::pkcs1::EncodeRsaPrivateKey;
+use rsa::traits::PublicKeyParts;
+use rsa::RsaPrivateKey;
 use serde_json::json;
+use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tower::ServiceExt;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
+
+const TEST_JWT_KID: &str = "integration-test-key-1";
 
 /// Create a test config pointing to the mock server.
 fn test_config(mock_url: &str) -> AppConfig {
@@ -82,6 +93,51 @@ fn build_test_app(config: AppConfig) -> Router {
         .with_state(state)
 }
 
+fn generate_test_signing_material() -> (Vec<u8>, String, String) {
+    let mut rng = rsa::rand_core::OsRng;
+    let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+    let public_key = private_key.to_public_key();
+    let private_key_der = private_key.to_pkcs1_der().unwrap();
+
+    (
+        private_key_der.as_bytes().to_vec(),
+        URL_SAFE_NO_PAD.encode(public_key.n().to_bytes_be()),
+        URL_SAFE_NO_PAD.encode(public_key.e().to_bytes_be()),
+    )
+}
+
+fn sign_test_jwt(private_key_der: &[u8], issuer: &str, audience: &str, subject: &str) -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let claims = JwtClaims {
+        sub: subject.to_string(),
+        aud: Audience::Single(audience.to_string()),
+        iss: issuer.to_string(),
+        exp: now + 3600,
+        iat: now,
+        gty: None,
+        permissions: Some(vec!["read:data".to_string()]),
+        email: Some("user@example.test".to_string()),
+        name: Some("Example User".to_string()),
+        nickname: None,
+        picture: None,
+        extra: HashMap::new(),
+    };
+
+    let mut header = Header::new(Algorithm::RS256);
+    header.kid = Some(TEST_JWT_KID.to_string());
+
+    jsonwebtoken::encode(
+        &header,
+        &claims,
+        &EncodingKey::from_rsa_der(private_key_der),
+    )
+    .unwrap()
+}
+
 // ==================== /health endpoint ====================
 
 #[tokio::test]
@@ -103,6 +159,49 @@ async fn test_health_endpoint() {
     assert_eq!(response.status(), StatusCode::OK);
     let body = response.into_body().collect().await.unwrap().to_bytes();
     assert_eq!(&body[..], b"OK");
+}
+
+#[tokio::test]
+async fn test_app_state_initialization_installs_jwt_crypto_provider_for_rs256_verification() {
+    let mock_server = MockServer::start().await;
+    let (private_key_der, jwk_n, jwk_e) = generate_test_signing_material();
+
+    Mock::given(method("GET"))
+        .and(path("/.well-known/jwks.json"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "keys": [{
+                "kty": "RSA",
+                "kid": TEST_JWT_KID,
+                "use": "sig",
+                "alg": "RS256",
+                "n": jwk_n,
+                "e": jwk_e
+            }]
+        })))
+        .mount(&mock_server)
+        .await;
+
+    let state = AppState::new(test_config(&mock_server.uri()));
+    let token = sign_test_jwt(
+        &private_key_der,
+        &state.config.domain,
+        &state.config.default.audience,
+        "auth0|integration-user",
+    );
+
+    let verified = state
+        .auth0_client
+        .verify_token(&token, &state.config.default.audience)
+        .await;
+
+    match verified {
+        Token::Jwt(jwt) => {
+            assert_eq!(jwt.subject(), "auth0|integration-user");
+            assert_eq!(jwt.claims.iss, state.config.domain);
+            assert!(jwt.claims.aud.contains(&state.config.default.audience));
+        }
+        other => panic!("expected verified JWT, got {:?}", other),
+    }
 }
 
 // ==================== /authorize endpoint ====================
