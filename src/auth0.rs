@@ -5,9 +5,17 @@ use moka::future::Cache;
 use reqwest::Client;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Once};
 use std::time::Duration;
 use tracing::{debug, error, trace, warn};
+
+static INSTALL_JWT_CRYPTO_PROVIDER: Once = Once::new();
+
+fn ensure_jwt_crypto_provider() {
+    INSTALL_JWT_CRYPTO_PROVIDER.call_once(|| {
+        let _ = jsonwebtoken::crypto::rust_crypto::DEFAULT_PROVIDER.install_default();
+    });
+}
 
 /// JWKS key structure
 #[derive(Debug, Clone, Deserialize)]
@@ -63,6 +71,8 @@ pub struct TokenResponse {
 
 impl Auth0Client {
     pub fn new(config: Arc<AppConfig>) -> Self {
+        ensure_jwt_crypto_provider();
+
         // Use a client that doesn't follow redirects for signout
         let http = Client::builder()
             .timeout(Duration::from_secs(30))

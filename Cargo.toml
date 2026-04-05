@@ -55,3 +55,4 @@ tokio-test = "0.4"
 wiremock = "0.6"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
+rsa = "0.9"
