@@ -1,3 +1,4 @@
 {
-  "forwardauth-rs": "2.0.0"
+  "forwardauth-rs": "2.0.0",
+  ".": "2.1.0"
 }
