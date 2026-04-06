@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.1](https://github.com/radicand/forwardauth-rs/compare/v2.1.0...v2.1.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* sync Helm chart appVersion with v2.1.0 release ([27aad71](https://github.com/radicand/forwardauth-rs/commit/27aad71905ef513ddabace4ecbb22387189c8242))
+* update Helm chart appVersion to 2.1.0 to match latest release ([8582f55](https://github.com/radicand/forwardauth-rs/commit/8582f55823c25b4e94b56e8ee6e38afe6380e61c))
+
 ## [2.1.0](https://github.com/radicand/forwardauth-rs/compare/v2.0.0...v2.1.0) (2026-04-05)
 
 
