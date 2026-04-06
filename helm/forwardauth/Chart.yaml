@@ -2,8 +2,8 @@ apiVersion: v2
 name: forwardauth
 description: A Rust-based forward authentication service for Traefik with Auth0/OIDC support
 type: application
-version: 1.0.0
-appVersion: "2.0.0"
+version: 1.1.0
+appVersion: "2.1.0"
 keywords:
   - auth0
   - traefik
