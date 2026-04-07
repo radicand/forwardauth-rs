@@ -146,7 +146,7 @@ impl Auth0Client {
     ) -> Result<String, anyhow::Error> {
         let cache_key = format!("{}:{}:{}", client_id, client_secret, audience);
 
-        // Check cache first
+        // Check cache first for a still-valid token
         if let Some(cached) = self.cc_token_cache.get(&cache_key).await {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -161,53 +161,69 @@ impl Auth0Client {
                     .map(|s| s.to_string())
                     .ok_or_else(|| anyhow::anyhow!("Cached token missing access_token field"));
             }
+            // Token has expired; evict before re-fetching so try_get_with below
+            // doesn't return the stale entry to other concurrent callers.
             self.cc_token_cache.invalidate(&cache_key).await;
         }
 
-        debug!("Requesting client credentials token from Auth0");
+        // Use try_get_with to ensure only one concurrent HTTP request is made
+        // when the cache is empty or has just been invalidated.
+        let http = self.http.clone();
+        let token_endpoint = self.config.token_endpoint.clone();
+        let client_id_owned = client_id.to_string();
+        let client_secret_owned = client_secret.to_string();
+        let audience_owned = audience.to_string();
 
-        let body = serde_json::json!({
-            "grant_type": "client_credentials",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "audience": audience
-        });
+        let cached = self
+            .cc_token_cache
+            .try_get_with(cache_key, async move {
+                debug!("Requesting client credentials token from Auth0");
 
-        let response = self
-            .http
-            .post(&self.config.token_endpoint)
-            .header("content-type", "application/json")
-            .json(&body)
-            .send()
-            .await?;
+                let body = serde_json::json!({
+                    "grant_type": "client_credentials",
+                    "client_id": client_id_owned,
+                    "client_secret": client_secret_owned,
+                    "audience": audience_owned
+                });
 
-        let json: serde_json::Value = response.json().await?;
+                let response = http
+                    .post(&token_endpoint)
+                    .header("content-type", "application/json")
+                    .json(&body)
+                    .send()
+                    .await?;
 
-        if let Some(err) = json.get("error").and_then(|e| e.as_str()) {
-            let desc = json
-                .get("error_description")
-                .and_then(|e| e.as_str())
-                .unwrap_or("Unknown error");
-            return Err(anyhow::anyhow!("Auth0 error: {} - {}", err, desc));
-        }
+                let json: serde_json::Value = response.json().await?;
 
-        let expires_in = json
-            .get("expires_in")
-            .and_then(|e| e.as_u64())
-            .unwrap_or(3600);
+                if let Some(err) = json.get("error").and_then(|e| e.as_str()) {
+                    let desc = json
+                        .get("error_description")
+                        .and_then(|e| e.as_str())
+                        .unwrap_or("Unknown error");
+                    return Err(anyhow::anyhow!("Auth0 error: {} - {}", err, desc));
+                }
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+                let expires_in = json
+                    .get("expires_in")
+                    .and_then(|e| e.as_u64())
+                    .unwrap_or(3600);
 
-        let cached = CachedToken {
-            access_token: json.clone(),
-            expires_at: now + expires_in,
-        };
-        self.cc_token_cache.insert(cache_key, cached).await;
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
 
-        json.get("access_token")
+                Ok(CachedToken {
+                    access_token: json,
+                    expires_at: now + expires_in,
+                })
+            })
+            .await
+            .map_err(|e: std::sync::Arc<anyhow::Error>| anyhow::anyhow!("{}", e))?;
+
+        cached
+            .access_token
+            .get("access_token")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
             .ok_or_else(|| anyhow::anyhow!("Missing access_token in response"))
@@ -287,74 +303,91 @@ impl Auth0Client {
             return Token::Opaque(token.to_string());
         }
 
-        // Check verified token cache
-        if let Some(cached_claims) = self.verified_token_cache.get(token).await {
-            if !cached_claims.aud.contains(expected_audience) {
-                return Token::Invalid(format!(
-                    "Audience mismatch: expected {} but got {:?}",
-                    expected_audience, cached_claims.aud
-                ));
+        // Use try_get_with to deduplicate concurrent verifications of the same token.
+        // moka ensures only one init future runs per key; others wait and share the result.
+        let self_clone = self.clone();
+        let token_owned = token.to_string();
+        let audience_owned = expected_audience.to_string();
+
+        let result = self
+            .verified_token_cache
+            .try_get_with(token.to_string(), async move {
+                self_clone
+                    .verify_jwt_uncached(&token_owned, &audience_owned)
+                    .await
+            })
+            .await
+            .map_err(|e: std::sync::Arc<anyhow::Error>| anyhow::anyhow!("{}", e));
+
+        match result {
+            Ok(cached_claims) => {
+                // The cache key is the raw token string, not token+audience, so we
+                // must re-check the audience on every retrieval.
+                if !cached_claims.aud.contains(expected_audience) {
+                    return Token::Invalid(format!(
+                        "Audience mismatch: expected {} but got {:?}",
+                        expected_audience, cached_claims.aud
+                    ));
+                }
+                // Evict and reject tokens that expired while sitting in the cache.
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                if cached_claims.exp > 0 && cached_claims.exp < now {
+                    self.verified_token_cache.invalidate(token).await;
+                    return Token::Invalid("Token has expired".to_string());
+                }
+                Token::Jwt(Box::new(JwtToken {
+                    raw: token.to_string(),
+                    claims: cached_claims,
+                }))
             }
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            if cached_claims.exp > 0 && cached_claims.exp < now {
-                self.verified_token_cache.invalidate(token).await;
-                return Token::Invalid("Token has expired".to_string());
+            Err(e) => {
+                trace!("JWT validation failed: {}", e);
+                Token::Invalid(e.to_string())
             }
-            return Token::Jwt(Box::new(JwtToken {
-                raw: token.to_string(),
-                claims: cached_claims,
-            }));
         }
+    }
 
+    /// Perform full JWT verification without consulting the cache.
+    /// Called exclusively from the `try_get_with` closure in `verify_token`.
+    async fn verify_jwt_uncached(
+        &self,
+        token: &str,
+        expected_audience: &str,
+    ) -> Result<JwtClaims, anyhow::Error> {
         // Decode the header to get the kid
-        let header = match decode_header(token) {
-            Ok(h) => h,
-            Err(e) => {
-                warn!("Failed to decode JWT header: {}", e);
-                return Token::Invalid(format!("Failed to decode JWT header: {}", e));
-            }
-        };
+        let header = decode_header(token).map_err(|e| {
+            warn!("Failed to decode JWT header: {}", e);
+            anyhow::anyhow!("Failed to decode JWT header: {}", e)
+        })?;
 
-        let kid = match &header.kid {
-            Some(k) => k.clone(),
-            None => {
-                warn!("JWT missing kid in header");
-                return Token::Invalid("JWT missing kid in header".to_string());
-            }
-        };
+        let kid = header.kid.ok_or_else(|| {
+            warn!("JWT missing kid in header");
+            anyhow::anyhow!("JWT missing kid in header")
+        })?;
 
-        // Get JWKS keys
-        let keys = match self.get_jwks_keys().await {
-            Ok(k) => k,
-            Err(e) => {
-                error!("Failed to fetch JWKS: {}", e);
-                return Token::Invalid(format!("Failed to fetch JWKS: {}", e));
-            }
-        };
+        // Get JWKS keys (deduplicated fetch via try_get_with in get_jwks_keys)
+        let keys = self.get_jwks_keys().await.map_err(|e| {
+            error!("Failed to fetch JWKS: {}", e);
+            e
+        })?;
 
         // Find matching key
-        let key = match keys.iter().find(|k| k.kid.as_deref() == Some(&kid)) {
-            Some(k) => k,
-            None => {
+        let key = keys
+            .iter()
+            .find(|k| k.kid.as_deref() == Some(&kid))
+            .ok_or_else(|| {
                 warn!("No matching JWKS key found for kid: {}", kid);
-                return Token::Invalid(format!("No matching key for kid: {}", kid));
-            }
-        };
+                anyhow::anyhow!("No matching key for kid: {}", kid)
+            })?;
 
         // Build decoding key from JWKS
         let decoding_key = match (&key.n, &key.e) {
-            (Some(n), Some(e)) => match DecodingKey::from_rsa_components(n, e) {
-                Ok(dk) => dk,
-                Err(e) => {
-                    return Token::Invalid(format!("Failed to build RSA key: {}", e));
-                }
-            },
-            _ => {
-                return Token::Invalid("JWKS key missing RSA components".to_string());
-            }
+            (Some(n), Some(e)) => DecodingKey::from_rsa_components(n, e)
+                .map_err(|e| anyhow::anyhow!("Failed to build RSA key: {}", e))?,
+            _ => return Err(anyhow::anyhow!("JWKS key missing RSA components")),
         };
 
         // Set up validation
@@ -362,9 +395,7 @@ impl Auth0Client {
             jsonwebtoken::Algorithm::RS256 => Algorithm::RS256,
             jsonwebtoken::Algorithm::RS384 => Algorithm::RS384,
             jsonwebtoken::Algorithm::RS512 => Algorithm::RS512,
-            other => {
-                return Token::Invalid(format!("Unsupported algorithm: {:?}", other));
-            }
+            other => return Err(anyhow::anyhow!("Unsupported algorithm: {:?}", other)),
         };
 
         let mut validation = Validation::new(alg);
@@ -374,49 +405,42 @@ impl Auth0Client {
         // Allow some clock skew
         validation.leeway = 60;
 
-        match decode::<JwtClaims>(token, &decoding_key, &validation) {
-            Ok(token_data) => {
-                let claims = token_data.claims;
+        let token_data = decode::<JwtClaims>(token, &decoding_key, &validation).map_err(|e| {
+            trace!("JWT validation failed: {}", e);
+            anyhow::anyhow!("Token validation failed: {}", e)
+        })?;
 
-                // Verify audience
-                if !claims.aud.contains(expected_audience) {
-                    return Token::Invalid(format!(
-                        "Audience mismatch: expected {}",
-                        expected_audience
-                    ));
-                }
+        let claims = token_data.claims;
 
-                // Cache the verified token
-                self.verified_token_cache
-                    .insert(token.to_string(), claims.clone())
-                    .await;
-
-                Token::Jwt(Box::new(JwtToken {
-                    raw: token.to_string(),
-                    claims,
-                }))
-            }
-            Err(e) => {
-                trace!("JWT validation failed: {}", e);
-                Token::Invalid(format!("Token validation failed: {}", e))
-            }
+        // Final audience check (belt-and-suspenders after jsonwebtoken validates)
+        if !claims.aud.contains(expected_audience) {
+            return Err(anyhow::anyhow!(
+                "Audience mismatch: expected {}",
+                expected_audience
+            ));
         }
+
+        Ok(claims)
     }
 
     /// Fetch JWKS keys from Auth0 (cached).
+    ///
+    /// Uses `try_get_with` so that when the 1-hour TTL fires under concurrent
+    /// traffic, only one HTTP request is issued; all other callers await that
+    /// single in-flight request instead of each firing their own.
     async fn get_jwks_keys(&self) -> Result<Vec<JwksKey>, anyhow::Error> {
         let jwks_uri = format!("{}.well-known/jwks.json", self.config.domain);
+        let http = self.http.clone();
+        let uri_for_log = jwks_uri.clone();
 
-        if let Some(cached) = self.jwks_cache.get(&jwks_uri).await {
-            return Ok(cached);
-        }
-
-        debug!("Fetching JWKS from {}", jwks_uri);
-        let response = self.http.get(&jwks_uri).send().await?;
-        let jwks: JwksResponse = response.json().await?;
-
-        self.jwks_cache.insert(jwks_uri, jwks.keys.clone()).await;
-
-        Ok(jwks.keys)
+        self.jwks_cache
+            .try_get_with(jwks_uri.clone(), async move {
+                debug!("Fetching JWKS from {}", uri_for_log);
+                let response = http.get(&jwks_uri).send().await?;
+                let jwks: JwksResponse = response.json().await?;
+                Ok::<Vec<JwksKey>, anyhow::Error>(jwks.keys)
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("{}", e))
     }
 }
