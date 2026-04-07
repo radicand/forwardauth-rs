@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.1](https://github.com/radicand/forwardauth-rs/compare/v2.1.0...v2.1.1) (2026-04-07)
+
+
+### Bug Fixes
+
+* eliminate cache stampedes and harden readiness probe reliability ([3e42c49](https://github.com/radicand/forwardauth-rs/commit/3e42c49cff522ed95e57f7c958bc750e3464a513))
+* eliminate JWKS/token cache stampedes and improve probe reliability ([ca3754d](https://github.com/radicand/forwardauth-rs/commit/ca3754d18e9efac1631060f5e1aa1f19d65a8803))
+* sync Helm chart appVersion with v2.1.0 release ([27aad71](https://github.com/radicand/forwardauth-rs/commit/27aad71905ef513ddabace4ecbb22387189c8242))
+* update Helm chart appVersion to 2.1.0 to match latest release ([8582f55](https://github.com/radicand/forwardauth-rs/commit/8582f55823c25b4e94b56e8ee6e38afe6380e61c))
+
 ## [2.1.0](https://github.com/radicand/forwardauth-rs/compare/v2.0.0...v2.1.0) (2026-04-05)
 
 
