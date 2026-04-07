@@ -1,0 +1,10 @@
+{
+  "release-type": "rust",
+  "extra-files": [
+    {
+      "type": "yaml",
+      "path": "helm/forwardauth/Chart.yaml",
+      "jsonpath": "$.appVersion"
+    }
+  ]
+}
