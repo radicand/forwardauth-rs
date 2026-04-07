@@ -54,17 +54,22 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState::new(config);
 
-    // Build the router
-    let app = Router::new()
+    // Build the router — the health endpoint is intentionally placed outside
+    // the authenticate_middleware so that Kubernetes probes are never affected
+    // by auth processing latency or middleware correctness.
+    let protected = Router::new()
         .route("/authorize", get(endpoints::authorize))
         .route("/signin", get(endpoints::signin))
         .route("/signout", get(endpoints::signout))
         .route("/userinfo", get(endpoints::userinfo))
-        .route("/health", get(|| async { "OK" }))
         .layer(axum_middleware::from_fn_with_state(
             state.clone(),
             authenticate_middleware,
-        ))
+        ));
+
+    let app = Router::new()
+        .route("/health", get(|| async { "OK" }))
+        .merge(protected)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 

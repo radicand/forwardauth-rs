@@ -80,16 +80,18 @@ fn test_config(mock_url: &str) -> AppConfig {
 /// Build the test app router.
 fn build_test_app(config: AppConfig) -> Router {
     let state = AppState::new(config);
-    Router::new()
+    let protected = Router::new()
         .route("/authorize", get(endpoints::authorize))
         .route("/signin", get(endpoints::signin))
         .route("/signout", get(endpoints::signout))
         .route("/userinfo", get(endpoints::userinfo))
-        .route("/health", get(|| async { "OK" }))
         .layer(axum_middleware::from_fn_with_state(
             state.clone(),
             authenticate_middleware,
-        ))
+        ));
+    Router::new()
+        .route("/health", get(|| async { "OK" }))
+        .merge(protected)
         .with_state(state)
 }
 
