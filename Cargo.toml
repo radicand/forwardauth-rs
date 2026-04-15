@@ -1,6 +1,6 @@
 [package]
 name = "forwardauth-rs"
-version = "2.1.1"
+version = "2.2.0"
 edition = "2021"
 description = "A Rust-based forward authentication service for Traefik with Auth0/OIDC support"
 license = "GPL-3.0"
