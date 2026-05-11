@@ -169,6 +169,15 @@ async fn test_app_state_initialization_installs_jwt_crypto_provider_for_rs256_ve
     let (private_key_der, jwk_n, jwk_e) = generate_test_signing_material();
 
     Mock::given(method("GET"))
+        .and(path("/.well-known/openid-configuration"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "issuer": mock_server.uri(),
+            "jwks_uri": format!("{}/.well-known/jwks.json", mock_server.uri())
+        })))
+        .mount(&mock_server)
+        .await;
+
+    Mock::given(method("GET"))
         .and(path("/.well-known/jwks.json"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "keys": [{
