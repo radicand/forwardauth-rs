@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.3.0...forwardauth-rs-v2.3.1) (2026-05-11)
+
+
+### Bug Fixes
+
+* use form-encoded body for OAuth2 token exchange ([#34](https://github.com/radicand/forwardauth-rs/issues/34)) ([555449d](https://github.com/radicand/forwardauth-rs/commit/555449d5a76dccf1c1efffcc1cefac3490213e3d))
+
 ## [2.3.0](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.2.0...forwardauth-rs-v2.3.0) (2026-05-11)
 
 
