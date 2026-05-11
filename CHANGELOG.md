@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.3.0](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.2.0...forwardauth-rs-v2.3.0) (2026-05-11)
+
+
+### Features
+
+* add jwks-url config override for non-Auth0 OIDC providers ([30be683](https://github.com/radicand/forwardauth-rs/commit/30be683b7f50f71a4790f7a751d1bc0a6fa427eb))
+
+
+### Bug Fixes
+
+* discover JWKS URI from OIDC discovery document ([45b697a](https://github.com/radicand/forwardauth-rs/commit/45b697abcea35df87d17b0d2a927a6a15d01cdde))
+* discover JWKS URI from OIDC discovery document ([4a20b59](https://github.com/radicand/forwardauth-rs/commit/4a20b59d4b6755d9c6da4543087ee3041d47bcf5))
+
 ## [2.2.0](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.1.1...forwardauth-rs-v2.2.0) (2026-04-15)
 
 
