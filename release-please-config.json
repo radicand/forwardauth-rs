@@ -13,6 +13,11 @@
           "type": "yaml",
           "path": "helm/forwardauth/Chart.yaml",
           "jsonpath": "$.appVersion"
+        },
+        {
+          "type": "yaml",
+          "path": "helm/forwardauth/values.yaml",
+          "jsonpath": "$.image.tag"
         }
       ]
     }
