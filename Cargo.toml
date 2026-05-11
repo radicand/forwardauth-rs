@@ -45,7 +45,7 @@ anyhow = "1"
 
 # Crypto
 uuid = { version = "1", features = ["v4"] }
-rand = "0.9"
+rand = "0.10"
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
