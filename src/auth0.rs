@@ -438,13 +438,7 @@ impl Auth0Client {
             "{}/.well-known/openid-configuration",
             self.config.domain.trim_end_matches('/')
         );
-        let discovery: OidcDiscovery = self
-            .http
-            .get(&discovery_url)
-            .send()
-            .await?
-            .json()
-            .await?;
+        let discovery: OidcDiscovery = self.http.get(&discovery_url).send().await?.json().await?;
         let jwks_uri = discovery.jwks_uri;
 
         let http = self.http.clone();
