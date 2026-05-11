@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.4.0](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.3.1...forwardauth-rs-v2.4.0) (2026-05-11)
+
+
+### Features
+
+* add multi-arch Docker builds (amd64 + arm64) and semver tags ([dae1326](https://github.com/radicand/forwardauth-rs/commit/dae1326222ccde117af56d45356d061a1746cd5b))
+* add multi-arch Docker builds and semver tags ([3989c36](https://github.com/radicand/forwardauth-rs/commit/3989c36e60027e049bda3b70235da13a833cd0f9))
+
+
+### Bug Fixes
+
+* simplify release pipeline - edge builds on every commit, semver tags only on release-please ([#38](https://github.com/radicand/forwardauth-rs/issues/38)) ([630b9e8](https://github.com/radicand/forwardauth-rs/commit/630b9e83b1b2625d28cf6ca194cc71e38b13c80f))
+
 ## [2.3.1](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.3.0...forwardauth-rs-v2.3.1) (2026-05-11)
 
 
