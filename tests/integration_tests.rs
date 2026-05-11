@@ -22,9 +22,10 @@ use rsa::traits::PublicKeyParts;
 use rsa::RsaPrivateKey;
 use serde_json::json;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tower::ServiceExt;
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{body_string_contains, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const TEST_JWT_KID: &str = "integration-test-key-1";
@@ -496,6 +497,15 @@ async fn test_signin_successful_exchange() {
     // Mock the token endpoint
     Mock::given(method("POST"))
         .and(path("/oauth/token"))
+        .and(header("content-type", "application/x-www-form-urlencoded"))
+        .and(body_string_contains("grant_type=authorization_code"))
+        .and(body_string_contains("client_id=test-client-id"))
+        .and(body_string_contains("client_secret=test-client-secret"))
+        .and(body_string_contains(
+            "redirect_uri=https%3A%2F%2Fwww.example.test%2Foauth2%2Fsignin",
+        ))
+        .and(body_string_contains("code=valid-code"))
+        .and(body_string_contains("scope=openid+id_token"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "access_token": "test-access-token",
             "id_token": "test-id-token",
@@ -553,6 +563,40 @@ async fn test_signin_successful_exchange() {
     assert!(cookies.iter().any(|c| c.contains("JWT_TOKEN=")));
     // Should clear nonce cookie
     assert!(cookies.iter().any(|c| c.contains("AUTH_NONCE=deleted")));
+}
+
+#[tokio::test]
+async fn test_client_credentials_exchange_uses_form_encoded_body() {
+    let mock_server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/oauth/token"))
+        .and(header("content-type", "application/x-www-form-urlencoded"))
+        .and(body_string_contains("grant_type=client_credentials"))
+        .and(body_string_contains("client_id=test-client-id"))
+        .and(body_string_contains("client_secret=test-client-secret"))
+        .and(body_string_contains(
+            "audience=https%3A%2F%2Fapi.example.test",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "access_token": "test-client-credentials-token",
+            "token_type": "Bearer",
+            "expires_in": 3600
+        })))
+        .mount(&mock_server)
+        .await;
+
+    let client = forwardauth_rs::auth0::Auth0Client::new(Arc::new(test_config(&mock_server.uri())));
+    let access_token = client
+        .client_credentials_exchange(
+            "test-client-id",
+            "test-client-secret",
+            "https://api.example.test",
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(access_token, "test-client-credentials-token");
 }
 
 // ==================== /signout endpoint ====================
