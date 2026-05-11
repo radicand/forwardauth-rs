@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.4.1](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.4.0...forwardauth-rs-v2.4.1) (2026-05-11)
+
+
+### Bug Fixes
+
+* **ci:** update chart values to match actual image version ([a697224](https://github.com/radicand/forwardauth-rs/commit/a697224ef0d55f8020c6f9ce3fd76fbb0812f063))
+* **ci:** update chart values to match actual image version ([a1b5189](https://github.com/radicand/forwardauth-rs/commit/a1b5189579c5fb0dafc4496efbeab75d6c3d2d82))
+
 ## [2.4.0](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.3.1...forwardauth-rs-v2.4.0) (2026-05-11)
 
 
