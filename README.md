@@ -52,7 +52,7 @@ helm install forwardauth ./helm/forwardauth \
   --set applicationYaml.logout-endpoint=https://YOUR_TENANT.auth0.com/v2/logout
 ```
 
-Or use a values file — see [helm/forwardauth/values.yaml](helm/forwardauth/values.yaml).
+Or use a values file — see [helm/forwardauth/values.example.yaml](helm/forwardauth/values.example.yaml) for a full, documented example and [helm/forwardauth/values.schema.json](helm/forwardauth/values.schema.json) for schema-backed editor validation.
 
 ## Configuration
 

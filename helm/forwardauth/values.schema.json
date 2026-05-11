@@ -1,0 +1,373 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/radicand/forwardauth-rs/blob/main/helm/forwardauth/values.schema.json",
+  "title": "forwardauth Helm chart values",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of forwardauth replicas to run.",
+      "examples": [1, 2]
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Container image settings.",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Container image repository.",
+          "examples": ["ghcr.io/radicand/forwardauth-rs"]
+        },
+        "tag": {
+          "type": "string",
+          "description": "Container image tag. Defaults to the chart appVersion when empty.",
+          "examples": ["latest", "2.4.1"]
+        },
+        "pullPolicy": {
+          "type": "string",
+          "description": "Kubernetes image pull policy.",
+          "enum": ["Always", "IfNotPresent", "Never"],
+          "examples": ["IfNotPresent"]
+        }
+      }
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "description": "Optional image pull secrets for private registries.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Secret name."
+          }
+        }
+      },
+      "examples": [[{"name": "ghcr-pull-secret"}]]
+    },
+    "nameOverride": {
+      "type": "string",
+      "description": "Override the chart name used in generated resource names.",
+      "examples": ["forwardauth"]
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "description": "Override the full resource name used by the chart.",
+      "examples": ["forwardauth-prod"]
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Service settings for the forwardauth deployment.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Kubernetes Service type.",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"],
+          "examples": ["ClusterIP"]
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Service port exposed inside the cluster.",
+          "examples": [80]
+        },
+        "targetPort": {
+          "description": "Target port exposed by the container.",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "examples": [8080, "http"]
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Ingress settings for exposing the auth endpoint.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable the ingress resource.",
+          "examples": [true, false]
+        },
+        "className": {
+          "type": "string",
+          "description": "Ingress class name.",
+          "examples": ["traefik"]
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Ingress annotations for your controller.",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "examples": [
+            {
+              "traefik.ingress.kubernetes.io/router.entrypoints": "websecure"
+            }
+          ]
+        },
+        "hosts": {
+          "type": "array",
+          "description": "Host rules for the ingress.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["host", "paths"],
+            "properties": {
+              "host": {
+                "type": "string",
+                "description": "Hostname to route to the service.",
+                "examples": ["auth.example.test"]
+              },
+              "paths": {
+                "type": "array",
+                "description": "Path rules for the host.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "pathType"],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "description": "Ingress path.",
+                      "examples": ["/"]
+                    },
+                    "pathType": {
+                      "type": "string",
+                      "description": "Kubernetes path type.",
+                      "enum": ["Prefix", "Exact", "ImplementationSpecific"],
+                      "examples": ["Prefix"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tls": {
+          "type": "array",
+          "description": "Optional TLS configuration for ingress hosts.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["secretName", "hosts"],
+            "properties": {
+              "secretName": {
+                "type": "string",
+                "description": "Secret containing the TLS certificate.",
+                "examples": ["auth-example-test-tls"]
+              },
+              "hosts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Hosts covered by the certificate.",
+                "examples": [["auth.example.test"]]
+              }
+            }
+          }
+        }
+      }
+    },
+    "applicationYaml": {
+      "type": "object",
+      "description": "Application configuration mounted to /config/application.yaml.",
+      "additionalProperties": true,
+      "properties": {
+        "domain": {
+          "type": "string",
+          "description": "Auth0 domain URL with trailing slash.",
+          "examples": ["https://YOUR_TENANT.auth0.com/"]
+        },
+        "token-endpoint": {
+          "type": "string",
+          "description": "Auth0 token endpoint.",
+          "examples": ["https://YOUR_TENANT.auth0.com/oauth/token"]
+        },
+        "authorize-url": {
+          "type": "string",
+          "description": "Auth0 authorize endpoint.",
+          "examples": ["https://YOUR_TENANT.auth0.com/authorize"]
+        },
+        "userinfo-endpoint": {
+          "type": "string",
+          "description": "Auth0 userinfo endpoint.",
+          "examples": ["https://YOUR_TENANT.auth0.com/userinfo"]
+        },
+        "logout-endpoint": {
+          "type": "string",
+          "description": "Auth0 logout endpoint.",
+          "examples": ["https://YOUR_TENANT.auth0.com/v2/logout"]
+        },
+        "nonce-max-age": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Nonce cookie max age in seconds.",
+          "examples": [60]
+        },
+        "default": {
+          "type": "object",
+          "description": "Default application configuration inherited by host-specific apps.",
+          "additionalProperties": true,
+          "properties": {
+            "name": {"type": "string"},
+            "client-id": {"type": "string"},
+            "client-secret": {"type": "string"},
+            "audience": {"type": "string"},
+            "scope": {"type": "string"},
+            "redirect-uri": {"type": "string"},
+            "token-cookie-domain": {"type": "string"},
+            "return-to": {"type": "string"},
+            "restricted-methods": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "HTTP methods that require authentication.",
+              "examples": [["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]]
+            },
+            "required-permissions": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Auth0 permissions required for access.",
+              "examples": [[]]
+            },
+            "claims": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Claims forwarded as x-forwardauth-* headers.",
+              "examples": [["sub", "name", "email"]]
+            }
+          }
+        },
+        "apps": {
+          "type": "array",
+          "description": "Per-host application overrides.",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "name": {"type": "string"},
+              "client-id": {"type": "string"},
+              "client-secret": {"type": "string"},
+              "audience": {"type": "string"},
+              "scope": {"type": "string"},
+              "redirect-uri": {"type": "string"},
+              "token-cookie-domain": {"type": "string"},
+              "return-to": {"type": "string"},
+              "restricted-methods": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "required-permissions": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "claims": {
+                "type": "array",
+                "items": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "existingConfigMap": {
+      "type": "string",
+      "description": "Use an existing ConfigMap instead of creating one.",
+      "examples": ["forwardauth-config"]
+    },
+    "resources": {
+      "type": "object",
+      "description": "CPU and memory resource requests and limits.",
+      "additionalProperties": true,
+      "examples": [
+        {
+          "limits": {"memory": "128Mi"},
+          "requests": {"cpu": "25m", "memory": "64Mi"}
+        }
+      ]
+    },
+    "nodeSelector": {
+      "type": "object",
+      "description": "Node selector for pod scheduling.",
+      "additionalProperties": true
+    },
+    "tolerations": {
+      "type": "array",
+      "description": "Pod tolerations.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "affinity": {
+      "type": "object",
+      "description": "Pod affinity rules.",
+      "additionalProperties": true
+    },
+    "podAnnotations": {
+      "type": "object",
+      "description": "Annotations applied to the pod template.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "description": "Pod-level security context.",
+      "additionalProperties": true
+    },
+    "securityContext": {
+      "type": "object",
+      "description": "Container-level security context.",
+      "additionalProperties": true
+    },
+    "livenessProbe": {
+      "type": "object",
+      "description": "Liveness probe configuration.",
+      "additionalProperties": true
+    },
+    "readinessProbe": {
+      "type": "object",
+      "description": "Readiness probe configuration.",
+      "additionalProperties": true
+    },
+    "env": {
+      "type": "array",
+      "description": "Additional environment variables for the container.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Environment variable name."
+          },
+          "value": {
+            "type": "string",
+            "description": "Literal environment variable value."
+          },
+          "valueFrom": {
+            "type": "object",
+            "description": "Source for the environment variable value.",
+            "additionalProperties": true
+          }
+        }
+      },
+      "examples": [[{"name": "RUST_LOG", "value": "info,forwardauth_rs=debug"}]]
+    }
+  }
+}
