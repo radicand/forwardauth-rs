@@ -34,6 +34,11 @@ pub struct JwksResponse {
     pub keys: Vec<JwksKey>,
 }
 
+#[derive(Debug, Deserialize)]
+struct OidcDiscovery {
+    jwks_uri: String,
+}
+
 /// Auth0 client for interacting with Auth0 HTTP APIs.
 #[derive(Clone)]
 pub struct Auth0Client {
@@ -423,17 +428,19 @@ impl Auth0Client {
         Ok(claims)
     }
 
-    /// Fetch JWKS keys from Auth0 (cached).
+    /// Discover the JWKS URI from the OIDC discovery document, then fetch keys.
     ///
-    /// Uses `try_get_with` so that when the 1-hour TTL fires under concurrent
-    /// traffic, only one HTTP request is issued; all other callers await that
-    /// single in-flight request instead of each firing their own.
+    /// The discovery document is fetched once; the resolved JWKS URI is used as
+    /// the cache key so the 1-hour TTL still deduplicates concurrent refetches.
     async fn get_jwks_keys(&self) -> Result<Vec<JwksKey>, anyhow::Error> {
-        let jwks_uri = self
-            .config
-            .jwks_url
-            .clone()
-            .unwrap_or_else(|| format!("{}.well-known/jwks.json", self.config.domain));
+        // Resolve JWKS URI via OIDC discovery
+        let discovery_url = format!(
+            "{}/.well-known/openid-configuration",
+            self.config.domain.trim_end_matches('/')
+        );
+        let discovery: OidcDiscovery = self.http.get(&discovery_url).send().await?.json().await?;
+        let jwks_uri = discovery.jwks_uri;
+
         let http = self.http.clone();
         let uri_for_log = jwks_uri.clone();
 
