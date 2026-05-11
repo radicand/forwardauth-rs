@@ -61,7 +61,8 @@ pub struct CachedToken {
 /// Response from Auth0 token endpoint
 #[derive(Debug, Deserialize)]
 pub struct TokenResponse {
-    pub access_token: String,
+    #[serde(default)]
+    pub access_token: Option<String>,
     #[serde(default)]
     pub id_token: Option<String>,
     #[serde(default)]
@@ -112,20 +113,19 @@ impl Auth0Client {
     ) -> Result<TokenResponse, anyhow::Error> {
         debug!("Performing authorization code exchange");
 
-        let body = serde_json::json!({
-            "grant_type": "authorization_code",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": redirect_uri,
-            "code": code,
-            "scope": "openid id_token"
-        });
+        let params = [
+            ("grant_type", "authorization_code"),
+            ("client_id", client_id),
+            ("client_secret", client_secret),
+            ("redirect_uri", redirect_uri),
+            ("code", code),
+            ("scope", "openid id_token"),
+        ];
 
         let response = self
             .http
             .post(&self.config.token_endpoint)
-            .header("content-type", "application/json")
-            .json(&body)
+            .form(&params)
             .send()
             .await?;
 
@@ -184,19 +184,14 @@ impl Auth0Client {
             .try_get_with(cache_key, async move {
                 debug!("Requesting client credentials token from Auth0");
 
-                let body = serde_json::json!({
-                    "grant_type": "client_credentials",
-                    "client_id": client_id_owned,
-                    "client_secret": client_secret_owned,
-                    "audience": audience_owned
-                });
+                let params = [
+                    ("grant_type", "client_credentials".to_string()),
+                    ("client_id", client_id_owned),
+                    ("client_secret", client_secret_owned),
+                    ("audience", audience_owned),
+                ];
 
-                let response = http
-                    .post(&token_endpoint)
-                    .header("content-type", "application/json")
-                    .json(&body)
-                    .send()
-                    .await?;
+                let response = http.post(&token_endpoint).form(&params).send().await?;
 
                 let json: serde_json::Value = response.json().await?;
 

@@ -185,11 +185,12 @@ async fn handle_signin(
         .await
     {
         Ok(token_resp) => {
+            let access_token = token_resp.access_token.unwrap_or_default();
             let id_token = token_resp.id_token.unwrap_or_default();
             let expires_in = token_resp.expires_in.unwrap_or(86400);
 
             SigninResult::Complete {
-                access_token: token_resp.access_token,
+                access_token,
                 id_token,
                 expires_in,
                 redirect_to: decoded_state.origin_url(),
