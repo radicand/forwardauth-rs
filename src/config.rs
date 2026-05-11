@@ -8,6 +8,11 @@ use url::Url;
 pub struct AppConfig {
     /// Auth0 domain URL (e.g., https://xxx.auth0.com/)
     pub domain: String,
+    /// Optional JWKS URI override. When set, used instead of the default
+    /// `{domain}/.well-known/jwks.json` construction. Useful for providers
+    /// like authentik where the JWKS URI differs from the Auth0 convention.
+    #[serde(default)]
+    pub jwks_url: Option<String>,
     /// Auth0 token endpoint (e.g., https://xxx.auth0.com/oauth/token)
     pub token_endpoint: String,
     /// Auth0 authorize URL (e.g., https://xxx.auth0.com/authorize)

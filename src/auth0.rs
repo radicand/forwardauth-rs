@@ -429,7 +429,11 @@ impl Auth0Client {
     /// traffic, only one HTTP request is issued; all other callers await that
     /// single in-flight request instead of each firing their own.
     async fn get_jwks_keys(&self) -> Result<Vec<JwksKey>, anyhow::Error> {
-        let jwks_uri = format!("{}.well-known/jwks.json", self.config.domain);
+        let jwks_uri = self
+            .config
+            .jwks_url
+            .clone()
+            .unwrap_or_else(|| format!("{}.well-known/jwks.json", self.config.domain));
         let http = self.http.clone();
         let uri_for_log = jwks_uri.clone();
 
