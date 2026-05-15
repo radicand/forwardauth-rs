@@ -22,6 +22,7 @@ ingress:
   tls: []
 applicationYaml: {}
 existingConfigMap: ''
+existingSecret: ''
 resources:
   limits:
     memory: 64Mi
