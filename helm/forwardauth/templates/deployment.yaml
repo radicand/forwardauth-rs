@@ -55,8 +55,13 @@ spec:
               readOnly: true
       volumes:
         - name: config
+          {{- if .Values.existingSecret }}
+          secret:
+            secretName: {{ .Values.existingSecret }}
+          {{- else }}
           configMap:
             name: {{ .Values.existingConfigMap | default (include "forwardauth.fullname" .) }}
+          {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
