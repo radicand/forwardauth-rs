@@ -9,7 +9,10 @@
       "type": "integer",
       "minimum": 1,
       "description": "Number of forwardauth replicas to run.",
-      "examples": [1, 2]
+      "examples": [
+        1,
+        2
+      ]
     },
     "image": {
       "type": "object",
@@ -19,18 +22,29 @@
         "repository": {
           "type": "string",
           "description": "Container image repository.",
-          "examples": ["ghcr.io/radicand/forwardauth-rs"]
+          "examples": [
+            "ghcr.io/radicand/forwardauth-rs"
+          ]
         },
         "tag": {
           "type": "string",
           "description": "Container image tag. Defaults to the chart appVersion when empty.",
-          "examples": ["latest", "2.4.1"]
+          "examples": [
+            "latest",
+            "2.4.1"
+          ]
         },
         "pullPolicy": {
           "type": "string",
           "description": "Kubernetes image pull policy.",
-          "enum": ["Always", "IfNotPresent", "Never"],
-          "examples": ["IfNotPresent"]
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ],
+          "examples": [
+            "IfNotPresent"
+          ]
         }
       }
     },
@@ -47,17 +61,27 @@
           }
         }
       },
-      "examples": [[{"name": "ghcr-pull-secret"}]]
+      "examples": [
+        [
+          {
+            "name": "ghcr-pull-secret"
+          }
+        ]
+      ]
     },
     "nameOverride": {
       "type": "string",
       "description": "Override the chart name used in generated resource names.",
-      "examples": ["forwardauth"]
+      "examples": [
+        "forwardauth"
+      ]
     },
     "fullnameOverride": {
       "type": "string",
       "description": "Override the full resource name used by the chart.",
-      "examples": ["forwardauth-prod"]
+      "examples": [
+        "forwardauth-prod"
+      ]
     },
     "service": {
       "type": "object",
@@ -67,14 +91,23 @@
         "type": {
           "type": "string",
           "description": "Kubernetes Service type.",
-          "enum": ["ClusterIP", "NodePort", "LoadBalancer", "ExternalName"],
-          "examples": ["ClusterIP"]
+          "enum": [
+            "ClusterIP",
+            "NodePort",
+            "LoadBalancer",
+            "ExternalName"
+          ],
+          "examples": [
+            "ClusterIP"
+          ]
         },
         "port": {
           "type": "integer",
           "minimum": 1,
           "description": "Service port exposed inside the cluster.",
-          "examples": [80]
+          "examples": [
+            80
+          ]
         },
         "targetPort": {
           "description": "Target port exposed by the container.",
@@ -87,7 +120,10 @@
               "type": "string"
             }
           ],
-          "examples": [8080, "http"]
+          "examples": [
+            8080,
+            "http"
+          ]
         }
       }
     },
@@ -99,12 +135,17 @@
         "enabled": {
           "type": "boolean",
           "description": "Enable the ingress resource.",
-          "examples": [true, false]
+          "examples": [
+            true,
+            false
+          ]
         },
         "className": {
           "type": "string",
           "description": "Ingress class name.",
-          "examples": ["traefik"]
+          "examples": [
+            "traefik"
+          ]
         },
         "annotations": {
           "type": "object",
@@ -124,12 +165,17 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["host", "paths"],
+            "required": [
+              "host",
+              "paths"
+            ],
             "properties": {
               "host": {
                 "type": "string",
                 "description": "Hostname to route to the service.",
-                "examples": ["auth.example.test"]
+                "examples": [
+                  "auth.example.test"
+                ]
               },
               "paths": {
                 "type": "array",
@@ -137,18 +183,29 @@
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["path", "pathType"],
+                  "required": [
+                    "path",
+                    "pathType"
+                  ],
                   "properties": {
                     "path": {
                       "type": "string",
                       "description": "Ingress path.",
-                      "examples": ["/"]
+                      "examples": [
+                        "/"
+                      ]
                     },
                     "pathType": {
                       "type": "string",
                       "description": "Kubernetes path type.",
-                      "enum": ["Prefix", "Exact", "ImplementationSpecific"],
-                      "examples": ["Prefix"]
+                      "enum": [
+                        "Prefix",
+                        "Exact",
+                        "ImplementationSpecific"
+                      ],
+                      "examples": [
+                        "Prefix"
+                      ]
                     }
                   }
                 }
@@ -162,12 +219,17 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["secretName", "hosts"],
+            "required": [
+              "secretName",
+              "hosts"
+            ],
             "properties": {
               "secretName": {
                 "type": "string",
                 "description": "Secret containing the TLS certificate.",
-                "examples": ["auth-example-test-tls"]
+                "examples": [
+                  "auth-example-test-tls"
+                ]
               },
               "hosts": {
                 "type": "array",
@@ -175,7 +237,11 @@
                   "type": "string"
                 },
                 "description": "Hosts covered by the certificate.",
-                "examples": [["auth.example.test"]]
+                "examples": [
+                  [
+                    "auth.example.test"
+                  ]
+                ]
               }
             }
           }
@@ -190,64 +256,116 @@
         "domain": {
           "type": "string",
           "description": "Auth0 domain URL with trailing slash.",
-          "examples": ["https://YOUR_TENANT.auth0.com/"]
+          "examples": [
+            "https://YOUR_TENANT.auth0.com/"
+          ]
         },
         "token-endpoint": {
           "type": "string",
           "description": "Auth0 token endpoint.",
-          "examples": ["https://YOUR_TENANT.auth0.com/oauth/token"]
+          "examples": [
+            "https://YOUR_TENANT.auth0.com/oauth/token"
+          ]
         },
         "authorize-url": {
           "type": "string",
           "description": "Auth0 authorize endpoint.",
-          "examples": ["https://YOUR_TENANT.auth0.com/authorize"]
+          "examples": [
+            "https://YOUR_TENANT.auth0.com/authorize"
+          ]
         },
         "userinfo-endpoint": {
           "type": "string",
           "description": "Auth0 userinfo endpoint.",
-          "examples": ["https://YOUR_TENANT.auth0.com/userinfo"]
+          "examples": [
+            "https://YOUR_TENANT.auth0.com/userinfo"
+          ]
         },
         "logout-endpoint": {
           "type": "string",
           "description": "Auth0 logout endpoint.",
-          "examples": ["https://YOUR_TENANT.auth0.com/v2/logout"]
+          "examples": [
+            "https://YOUR_TENANT.auth0.com/v2/logout"
+          ]
         },
         "nonce-max-age": {
           "type": "integer",
           "minimum": 1,
           "description": "Nonce cookie max age in seconds.",
-          "examples": [60]
+          "examples": [
+            60
+          ]
         },
         "default": {
           "type": "object",
           "description": "Default application configuration inherited by host-specific apps.",
           "additionalProperties": true,
           "properties": {
-            "name": {"type": "string"},
-            "client-id": {"type": "string"},
-            "client-secret": {"type": "string"},
-            "audience": {"type": "string"},
-            "scope": {"type": "string"},
-            "redirect-uri": {"type": "string"},
-            "token-cookie-domain": {"type": "string"},
-            "return-to": {"type": "string"},
+            "name": {
+              "type": "string"
+            },
+            "client-id": {
+              "type": "string"
+            },
+            "client-secret": {
+              "type": "string"
+            },
+            "audience": {
+              "type": "string"
+            },
+            "scope": {
+              "type": "string"
+            },
+            "redirect-uri": {
+              "type": "string"
+            },
+            "token-cookie-domain": {
+              "type": "string"
+            },
+            "return-to": {
+              "type": "string"
+            },
             "restricted-methods": {
               "type": "array",
-              "items": {"type": "string"},
+              "items": {
+                "type": "string"
+              },
               "description": "HTTP methods that require authentication.",
-              "examples": [["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]]
+              "examples": [
+                [
+                  "GET",
+                  "POST",
+                  "PUT",
+                  "DELETE",
+                  "PATCH",
+                  "HEAD",
+                  "OPTIONS"
+                ]
+              ]
             },
             "required-permissions": {
               "type": "array",
-              "items": {"type": "string"},
+              "items": {
+                "type": "string"
+              },
               "description": "Auth0 permissions required for access.",
-              "examples": [[]]
+              "examples": [
+                []
+              ]
             },
             "claims": {
               "type": "array",
-              "items": {"type": "string"},
+              "items": {
+                "type": "string"
+              },
               "description": "Claims forwarded as x-forwardauth-* headers.",
-              "examples": [["sub", "name", "email"]]
+              "examples": [
+                [
+                  "sub",
+                  "name",
+                  "email"
+                ]
+              ]
             }
           }
         },
@@ -258,25 +376,47 @@
             "type": "object",
             "additionalProperties": true,
             "properties": {
-              "name": {"type": "string"},
-              "client-id": {"type": "string"},
-              "client-secret": {"type": "string"},
-              "audience": {"type": "string"},
-              "scope": {"type": "string"},
-              "redirect-uri": {"type": "string"},
-              "token-cookie-domain": {"type": "string"},
-              "return-to": {"type": "string"},
+              "name": {
+                "type": "string"
+              },
+              "client-id": {
+                "type": "string"
+              },
+              "client-secret": {
+                "type": "string"
+              },
+              "audience": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string"
+              },
+              "redirect-uri": {
+                "type": "string"
+              },
+              "token-cookie-domain": {
+                "type": "string"
+              },
+              "return-to": {
+                "type": "string"
+              },
               "restricted-methods": {
                 "type": "array",
-                "items": {"type": "string"}
+                "items": {
+                  "type": "string"
+                }
               },
               "required-permissions": {
                 "type": "array",
-                "items": {"type": "string"}
+                "items": {
+                  "type": "string"
+                }
               },
               "claims": {
                 "type": "array",
-                "items": {"type": "string"}
+                "items": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -286,7 +426,16 @@
     "existingConfigMap": {
       "type": "string",
       "description": "Use an existing ConfigMap instead of creating one.",
-      "examples": ["forwardauth-config"]
+      "examples": [
+        "forwardauth-config"
+      ]
+    },
+    "existingSecret": {
+      "type": "string",
+      "description": "Use an existing Secret instead of creating a ConfigMap. The Secret must contain a key named application.yaml.",
+      "examples": [
+        "forwardauth-oidc-config"
+      ]
     },
     "resources": {
       "type": "object",
@@ -294,8 +443,13 @@
       "additionalProperties": true,
       "examples": [
         {
-          "limits": {"memory": "128Mi"},
-          "requests": {"cpu": "25m", "memory": "64Mi"}
+          "limits": {
+            "memory": "128Mi"
+          },
+          "requests": {
+            "cpu": "25m",
+            "memory": "64Mi"
+          }
         }
       ]
     },
@@ -350,7 +504,9 @@
       "items": {
         "type": "object",
         "additionalProperties": true,
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
           "name": {
             "type": "string",
@@ -367,7 +523,14 @@
           }
         }
       },
-      "examples": [[{"name": "RUST_LOG", "value": "info,forwardauth_rs=debug"}]]
+      "examples": [
+        [
+          {
+            "name": "RUST_LOG",
+            "value": "info,forwardauth_rs=debug"
+          }
+        ]
+      ]
     }
   }
 }
