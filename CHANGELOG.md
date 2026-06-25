@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.0](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.4.1...forwardauth-rs-v2.5.0) (2026-06-25)
+
+
+### Features
+
+* **chart:** add existingSecret support for config volume ([#42](https://github.com/radicand/forwardauth-rs/issues/42)) ([2a27cd3](https://github.com/radicand/forwardauth-rs/commit/2a27cd37addb7fc84214f5e652e67d413f5fac5a))
+
+
+### Bug Fixes
+
+* **chart:** add existingSecret to values schema ([#44](https://github.com/radicand/forwardauth-rs/issues/44)) ([1897dd7](https://github.com/radicand/forwardauth-rs/commit/1897dd73a9f4f774ee1c78996adcfecb74154845))
+
 ## [2.4.1](https://github.com/radicand/forwardauth-rs/compare/forwardauth-rs-v2.4.0...forwardauth-rs-v2.4.1) (2026-05-11)
 
 
