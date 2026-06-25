@@ -5,8 +5,8 @@ name: Weekly Repository Maintenance
 #   PST (UTC-8): Friday 17:00 = Saturday 01:00 UTC  → cron day 6 hour 1
 # We schedule at 00:00 UTC Saturday (≈ Friday 5PM PDT) and accept ±1 hour seasonal drift.
 on:
-  schedule:
-    - cron: "0 0 * * 6"
+  # schedule:
+  #   - cron: "0 0 * * 6"
   workflow_dispatch: {}
 
 permissions:
