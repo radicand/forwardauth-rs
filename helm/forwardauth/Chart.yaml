@@ -4,8 +4,8 @@ description: >-
   A Rust-based forward authentication service for Traefik with Auth0/OIDC
   support
 type: application
-version: 2.4.1
-appVersion: 2.4.1
+version: 2.5.0
+appVersion: 2.5.0
 keywords:
   - auth0
   - traefik
